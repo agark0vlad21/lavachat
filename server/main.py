@@ -50,7 +50,7 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 def cli():
     while True:
         try:
-            cmd = input("put your command here: ")
+            cmd = input("put your command here: ").strip()
             from config import CLI_COMMANDS
             if cmd in CLI_COMMANDS:
                 exec(CLI_COMMANDS[cmd])
@@ -80,11 +80,18 @@ class ClientThread(multivate):
         while True:
             try:
                 data = self.csocket.recv(4096)
-            except ConnectionResetError:
+            except (ConnectionResetError, OSError):
                 sockets.remove(self.csocket)
                 self.csocket.close()
                 break
-            msg = data.decode()
+
+            try:
+                msg = data.decode()
+            except UnicodeDecodeError:
+                self.csocket.close()
+                sockets.remove(self.csocket)
+                break
+
             if msg == "":
                 sockets.remove(self.csocket)
                 self.csocket.close()
@@ -94,7 +101,7 @@ class ClientThread(multivate):
                     if sock != self.csocket:
                         try:
                             sock.send(bytes(msg, "UTF-8"))
-                        except BrokenPipeError:
+                        except (BrokenPipeError, ConnectionResetError, OSError):
                             sock.close()
                             sockets.remove(sock)
                             break
