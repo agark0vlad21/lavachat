@@ -4,9 +4,8 @@ from threading import Thread
 from time import sleep as wait
 from config import PORT, RETRIES, SERVER
 
-
-
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 try:
     client.connect((SERVER, PORT))
 except ConnectionRefusedError:
@@ -18,30 +17,34 @@ except ConnectionRefusedError:
             break
         except ConnectionRefusedError:
             if i == RETRIES + 1:
-                exit
+                exit()
             wait(10)
+print("Connected!")
 
-def task():
+
+def reader():
     while True:
-        in_data =  client.recv(4096)
-        if in_data.decode() != "":
-            print(in_data.decode())
+        data = client.recv(4096)
+        if data.decode() != "":
+            print(repr(data.decode()))
         else:
-            print("looks like server shutdowned")
+            print("Connection closed")
             client.close()
             exit(0)
             break
 
-def task2():
+
+def sender():
     while True:
-        out_data = input()
-        client.sendall(bytes(out_data,'UTF-8'))
+        client.sendall(bytes(input(), "UTF-8"))
 
-t1 = Thread(target=task2)
-t2 = Thread(target=task)
 
-t1.start()
-t2.start()
+Thread(target=sender, daemon=True).start()
+Thread(target=reader, daemon=True).start()
 
-t1.join()
-t2.join()
+# Infinity cycle for do nothing
+try:
+    while True:
+        wait(10)
+except KeyboardInterrupt:
+    exit()
