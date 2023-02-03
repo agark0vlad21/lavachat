@@ -1,10 +1,18 @@
-import readline
-import socket
+from readline import set_completer, parse_and_bind
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from traceback import print_exc
+from sys import stderr
+from atexit import register
+from gc import collect
 try:
     from config import Host, Port, MultivateMethod, CliCommands
 except ImportError as e:
-    print(f"can't import config: {e}")
-    exit(3)
+    print(f"Can't import config: {e}")
+    print("Using default settings")
+    Host = ""
+    Port = 7777
+    MultivateMethod = "Thread"
+    CliCommands = {"connected": "print(len(sockets))"}
 
 
 # Setting up autocompletion in shell
@@ -30,38 +38,48 @@ class CliCompleter():
 
 
 # Binding autocompletion
-readline.set_completer(CliCompleter(list(CliCommands)).complete)
-readline.parse_and_bind("tab: complete")
-readline.parse_and_bind("set editing-mode vi")
+set_completer(CliCompleter(list(CliCommands)).complete)
+parse_and_bind("tab: complete")
+parse_and_bind("set editing-mode vi")
+
+# Removing useless variables
+del parse_and_bind, set_completer
 
 # Configuring multivate method
 if MultivateMethod.strip().lower() == "thread":
-    from threading import Thread as multivate
+    from threading import Thread as Multivate
 elif MultivateMethod.strip().lower() == "process":
-    from multiprocessing import Process as multivate
+    from multiprocessing import Process as Multivate
 else:
-    print("unkown multivate method, valid values are 'thread' and 'process'")
-    exit(1)
+    print("Unkown multivate method, valid values are 'Thread' and 'Process'")
+    print("Using Thread by default")
+    from threading import Thread as Multivate
+
+# Removing useless variables
+del MultivateMethod
 
 # Setting up server
 sockets = []
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server = socket(AF_INET, SOCK_STREAM)
+server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+
+# Removing useless variables
+del socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 
 
 # Setting up server cli
 def Cli():
     while True:
         try:
-            cmd = input("put your command here: ").strip()
+            cmd = input("Put your command here: ").strip()
             if cmd in CliCommands:
                 exec(CliCommands[cmd])
             else:
-                print("command not found")
+                print("Command not found")
         except (EOFError, KeyboardInterrupt):
             exit(3)
-        except Exception as e:
-            print(e.__class__, e, e.args)
+        except Exception:
+            print_exc(file=stderr)
 
 
 # Starting server
@@ -73,24 +91,20 @@ except OSError as e:
 
 
 # Defines thread for client
-class ClientThread(multivate):
+class ClientThread(Multivate):
     def __init__(self, clientAdress, clientsock):
         sockets.append(clientsock)
-        multivate.__init__(self)
+        Multivate.__init__(self)
         self.csocket = clientsock
 
     def run(self):
-        msg = ""
         while True:
             try:
-                data = self.csocket.recv(4096)
+                msg = self.csocket.recv(4096).decode()
             except OSError:
                 sockets.remove(self.csocket)
                 self.csocket.close()
                 break
-
-            try:
-                msg = data.decode()
             except UnicodeDecodeError:
                 self.csocket.close()
                 sockets.remove(self.csocket)
@@ -111,8 +125,24 @@ class ClientThread(multivate):
                             break
 
 
+@register
+def GracefullyExit():
+    for sock in sockets:
+        try:
+            sock.send(bytes("Server is shutting down, bye-bye", "UTF-8"))
+        except OSError:
+            pass
+        try:
+            sockets.remove(sock)
+        except ValueError:
+            pass
+        sock.close()
+
+# Removing useless variables
+del register
+
 # Running cli
-multivate(target=Cli).start()
+Multivate(target=Cli, daemon=True).start()
 
 # Accepting connections in infinity cycle
 while True:
@@ -120,5 +150,6 @@ while True:
         server.listen(1)
         clientsock, clientAdress = server.accept()
         ClientThread(clientAdress, clientsock).start()
-    except (KeyboardInterrupt, EOFError):
-        exit(4)
+    except KeyboardInterrupt:
+        GracefullyExit()
+        exit()

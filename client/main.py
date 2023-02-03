@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 from time import sleep as wait
@@ -49,12 +51,9 @@ except OSError:
 
 print("Connected!")
 
-
 # Registering close connection function at exit
-@register
-def close_at_exit():
-    client.close()
-
+register(client.close)
+del register
 
 def reader():
     while True:
