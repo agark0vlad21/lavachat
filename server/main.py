@@ -1,13 +1,14 @@
 import readline
-import socket, multiprocessing
+import socket
 try:
-    from config import *
+    from config import Host, Port, MultivateMethod, CliCommands
 except ImportError as e:
     print(f"can't import config: {e}")
     exit(3)
 
+
 # Setting up autocompletion in shell
-class cli_completer():
+class CliCompleter():
     def __init__(self, options):
         self.options = sorted(options)
         return
@@ -16,7 +17,7 @@ class cli_completer():
         response = None
         if state == 0:
             if text:
-                self.matches = [s 
+                self.matches = [s
                                 for s in self.options
                                 if s and s.startswith(text)]
             else:
@@ -27,15 +28,16 @@ class cli_completer():
             response = None
         return response
 
+
 # Binding autocompletion
-readline.set_completer(cli_completer(list(CLI_COMMANDS)).complete)
-readline.parse_and_bind('tab: complete')
-readline.parse_and_bind('set editing-mode vi')
+readline.set_completer(CliCompleter(list(CliCommands)).complete)
+readline.parse_and_bind("tab: complete")
+readline.parse_and_bind("set editing-mode vi")
 
 # Configuring multivate method
-if MULTIVATE_METHOD.strip() == "thread":
+if MultivateMethod.strip().lower() == "thread":
     from threading import Thread as multivate
-elif MULTIVATE_METHOD.strip() == "process":
+elif MultivateMethod.strip().lower() == "process":
     from multiprocessing import Process as multivate
 else:
     print("unkown multivate method, valid values are 'thread' and 'process'")
@@ -46,27 +48,29 @@ sockets = []
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+
 # Setting up server cli
-def cli():
+def Cli():
     while True:
         try:
             cmd = input("put your command here: ").strip()
-            from config import CLI_COMMANDS
-            if cmd in CLI_COMMANDS:
-                exec(CLI_COMMANDS[cmd])
+            if cmd in CliCommands:
+                exec(CliCommands[cmd])
             else:
                 print("command not found")
         except (EOFError, KeyboardInterrupt):
             exit(3)
         except Exception as e:
-            print (e.__class__, e, e.args)
+            print(e.__class__, e, e.args)
+
 
 # Starting server
 try:
-    server.bind((HOST, PORT))
+    server.bind((Host, Port))
 except OSError as e:
     print(f"Can't bind adress: \u001b[31;1m{e.strerror.lower()}\u001b[0m")
     exit(2)
+
 
 # Defines thread for client
 class ClientThread(multivate):
@@ -80,7 +84,7 @@ class ClientThread(multivate):
         while True:
             try:
                 data = self.csocket.recv(4096)
-            except (ConnectionResetError, OSError):
+            except OSError:
                 sockets.remove(self.csocket)
                 self.csocket.close()
                 break
@@ -101,22 +105,20 @@ class ClientThread(multivate):
                     if sock != self.csocket:
                         try:
                             sock.send(bytes(msg, "UTF-8"))
-                        except (BrokenPipeError, ConnectionResetError, OSError):
+                        except OSError:
                             sock.close()
                             sockets.remove(sock)
                             break
 
 
 # Running cli
-run_cli = multivate(target=cli)
-run_cli.start()
+multivate(target=Cli).start()
 
 # Accepting connections in infinity cycle
 while True:
     try:
         server.listen(1)
         clientsock, clientAdress = server.accept()
-        newthread = ClientThread(clientAdress, clientsock)
-        newthread.start()
+        ClientThread(clientAdress, clientsock).start()
     except (KeyboardInterrupt, EOFError):
         exit(4)
