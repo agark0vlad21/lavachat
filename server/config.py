@@ -5,5 +5,8 @@ CliCommands = {
         "connected": "print(len(sockets))",
         "help": "print ('Avaliable commands:')\nfor i in list(CliCommands):\n    print(i)",
         "kickall": "for sock in sockets:\n    sock.close()",
-        "gc": "print(f'gc returned {collect()}')"
+        "gc": "print(f'gc returned {collect()}')",
+        "exec": "exec(StrArgs)",
+        "eval": "print(eval(StrArgs))",
+        "exit": "print('for exit press Ctrl + C')"
         }

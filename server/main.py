@@ -72,6 +72,14 @@ def Cli():
     while True:
         try:
             cmd = input("Put your command here: ").strip()
+            args = cmd.split()[1:]
+            try:
+                cmd = cmd.split()[0]
+            except IndexError:
+                continue
+            StrArgs = ""
+            for arg in args:
+                StrArgs += f"{arg} "
             if cmd in CliCommands:
                 exec(CliCommands[cmd])
             else:
@@ -152,4 +160,5 @@ while True:
         ClientThread(clientAdress, clientsock).start()
     except KeyboardInterrupt:
         GracefullyExit()
+        print()
         exit()

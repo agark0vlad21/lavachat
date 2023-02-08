@@ -7,6 +7,7 @@ from config import Port as ConfPort, Retries as ConfRetries, Adress as ConfAdres
 from atexit import register
 from argparse import ArgumentParser
 from sys import exit
+from signal import signal, SIGINT
 
 parser = ArgumentParser(description="Simple chat in terminal")
 parser.add_argument("-p",
@@ -62,7 +63,6 @@ def reader():
             print(repr(msg))
         else:
             print("Connection closed")
-            sender.exit()
             break
 
 
@@ -72,10 +72,4 @@ def sender():
 
 
 Thread(target=sender, daemon=True).start()
-Thread(target=reader, daemon=True).start()
-
-while True:
-    try:
-        wait(10)
-    except KeyboardInterrupt:
-        exit()
+Thread(target=reader, daemon=False).start()
