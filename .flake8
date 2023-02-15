@@ -1,0 +1,4 @@
+[flake8]
+inline-quotes = double
+ignore = D400, D101, D102, D103, D107
+exclude = .git, __pycache__
