@@ -1,3 +1,6 @@
+#! /usr/bin/python3
+"""Lavachat - simple terminal chat based on python sockets"""
+
 from readline import set_completer, parse_and_bind
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from traceback import print_exc
@@ -6,7 +9,7 @@ from atexit import register
 from gc import collect
 try:
     from config import Host, Port, MultivateMethod, CliCommands
-except ImportError as e:
+except (ImportError, Exception) as e:
     print(f"Can't import config: {e}")
     print("Using default settings")
     Host = ""
@@ -145,6 +148,7 @@ def GracefullyExit():
         except ValueError:
             pass
         sock.close()
+
 
 # Removing useless variables
 del register
