@@ -3,28 +3,28 @@
 from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 from time import sleep as wait
-from config import Port as ConfPort, Retries as ConfRetries, Adress as ConfAdress
+from config import Port as CfgPort, Retries as CfgRetries, Adress as CfgAdress
 from atexit import register
 from argparse import ArgumentParser
 from sys import exit
-from signal import signal, SIGINT
+from gzip import BadGzipFile, compress, decompress
 
 parser = ArgumentParser(description="Simple chat in terminal")
 parser.add_argument("-p",
                     "--port",
                     type=int,
-                    help=f"Port for connection (default is {ConfPort})",
-                    default=ConfPort)
+                    help=f"Port for connection (default is {CfgPort})",
+                    default=CfgPort)
 parser.add_argument("-a",
                     "--adress",
                     type=str,
-                    help=f"Adress for connecting (default is {ConfAdress})",
-                    default=ConfAdress)
+                    help=f"Adress for connecting (default is {CfgAdress})",
+                    default=CfgAdress)
 parser.add_argument("-r",
                     "--retries",
                     type=int,
-                    help=f"Retries for connecting (default is {ConfRetries})",
-                    default=ConfRetries)
+                    help=f"Retries for connecting (default is {CfgRetries})",
+                    default=CfgRetries)
 args, unknown = parser.parse_known_args()
 if len(unknown) != 0:
     print(f"Unknown args: {unknown}")
@@ -56,9 +56,10 @@ print("Connected!")
 register(client.close)
 del register
 
+
 def reader():
     while True:
-        msg = client.recv(4096).decode()
+        msg = decompress(client.recv(4096)).decode()
         if msg != "":
             print(repr(msg))
         else:
@@ -68,7 +69,7 @@ def reader():
 
 def sender():
     while True:
-        client.sendall(bytes(input(), "UTF-8"))
+        client.sendall(compress(bytes(input(), "UTF-8")))
 
 
 Thread(target=sender, daemon=True).start()

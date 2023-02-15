@@ -1,14 +1,31 @@
 #! /usr/bin/python3
 """Lavachat - simple terminal chat based on python sockets"""
-
-from readline import set_completer, parse_and_bind
+from os import name
+try:
+    from readline import set_completer, parse_and_bind
+except ImportError:
+    try:
+        from pyreadline3 import Readline
+        readline = Readline()
+        set_completer = readline.set_completer
+        parse_and_bind = readline.parse_and_bind
+    except ImportError:
+        print("Warning: No readline found")
+        print("Note: You can install it with 'pip install pyreadline3'")
+        UseReadline = False
+else:
+        UseReadline = True
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from traceback import print_exc
-from sys import stderr
+from sys import stderr, platform, version
 from atexit import register
-from gc import collect
+from gzip import BadGzipFile, compress, decompress
+
+print(f"Starting lavachat with Python {version} on {platform} ({name})")
+del version, platform, name
+
 try:
-    from config import Host, Port, MultivateMethod, CliCommands
+    from config import Host, Port, MultivateMethod, CliCommands, StartupCommands
 except (ImportError, Exception) as e:
     print(f"Can't import config: {e}")
     print("Using default settings")
@@ -17,36 +34,35 @@ except (ImportError, Exception) as e:
     MultivateMethod = "Thread"
     CliCommands = {"connected": "print(len(sockets))"}
 
-
 # Setting up autocompletion in shell
-class CliCompleter():
-    def __init__(self, options):
-        self.options = sorted(options)
-        return
+if UseReadline:
+    class CliCompleter():
+        def __init__(self, options):
+            self.options = sorted(options)
+            return
 
-    def complete(self, text, state):
-        response = None
-        if state == 0:
-            if text:
-                self.matches = [s
+        def complete(self, text, state):
+            response = None
+            if state == 0:
+                if text:
+                    self.matches = [s
                                 for s in self.options
                                 if s and s.startswith(text)]
-            else:
-                self.matches = self.options[:]
-        try:
-            response = self.matches[state]
-        except IndexError:
-            response = None
-        return response
+                else:
+                    self.matches = self.options[:]
+            try:
+                response = self.matches[state]
+            except IndexError:
+                response = None
+            return response
 
+    # Binding autocompletion
+    set_completer(CliCompleter(list(CliCommands)).complete)
+    parse_and_bind("tab: complete")
+    parse_and_bind("set editing-mode vi")
 
-# Binding autocompletion
-set_completer(CliCompleter(list(CliCommands)).complete)
-parse_and_bind("tab: complete")
-parse_and_bind("set editing-mode vi")
-
-# Removing useless variables
-del parse_and_bind, set_completer
+    # Removing useless variables
+    del parse_and_bind, set_completer
 
 # Configuring multivate method
 if MultivateMethod.strip().lower() == "thread":
@@ -54,7 +70,7 @@ if MultivateMethod.strip().lower() == "thread":
 elif MultivateMethod.strip().lower() == "process":
     from multiprocessing import Process as Multivate
 else:
-    print("Unkown multivate method, valid values are 'Thread' and 'Process'")
+    print("Unknown multivate method, valid values are 'Thread' and 'Process'")
     print("Using Thread by default")
     from threading import Thread as Multivate
 
@@ -74,7 +90,7 @@ del socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 def Cli():
     while True:
         try:
-            cmd = input("Put your command here: ").strip()
+            cmd = input("> ").strip()
             args = cmd.split()[1:]
             try:
                 cmd = cmd.split()[0]
@@ -110,15 +126,12 @@ class ClientThread(Multivate):
 
     def run(self):
         while True:
+            # Catching decoding error and disconnecting
             try:
-                msg = self.csocket.recv(4096).decode()
-            except OSError:
+                msg = decompress(self.csocket.recv(4096)).decode("UTF-8")
+            except (OSError, UnicodeDecodeError, BadGzipFile):
                 sockets.remove(self.csocket)
                 self.csocket.close()
-                break
-            except UnicodeDecodeError:
-                self.csocket.close()
-                sockets.remove(self.csocket)
                 break
 
             if msg == "":
@@ -129,7 +142,7 @@ class ClientThread(Multivate):
                 for sock in sockets:
                     if sock != self.csocket:
                         try:
-                            sock.send(bytes(msg, "UTF-8"))
+                            sock.send(compress(bytes(msg, "UTF-8")))
                         except OSError:
                             sock.close()
                             sockets.remove(sock)

@@ -1,8 +1,8 @@
 # [Server]
 Port = 7777  # Port to listen
 Host = ""  # Adress to bind
-MultivateMethod = "Thread"  # Method of multivate, avaliabe only thread and process
-Protocol' = "TCP"  # Protocol for lavachat (UDP faster but can miss some data, TCP slower but guarantees data transfer)
+MultivateMethod = "Thread"  # Method of multivate (Thread/Process)
+Protocol = "TCP"  # Protocol for server (TCP/UDP)
 
 # [Cli]
 CliCommands = {
@@ -14,3 +14,4 @@ CliCommands = {
         "eval": "print(eval(StrArgs))",
         "exit": "print('for exit press Ctrl + C')"
         }
+StartupCommands = ()  # Tuple/list of cli commands that will be executed at server startup
