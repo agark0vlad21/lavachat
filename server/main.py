@@ -9,6 +9,7 @@ except ImportError:
         readline = Readline()
         set_completer = readline.set_completer
         parse_and_bind = readline.parse_and_bind
+        del readline
     except ImportError:
         print("Warning: No readline found")
         print("Note: You can install it with 'pip install pyreadline3'")
@@ -26,8 +27,8 @@ del version, platform, name
 
 try:
     from config import Host, Port, MultivateMethod, CliCommands, StartupCommands
-except (ImportError, Exception) as e:
-    print(f"Can't import config: {e}")
+except Exception as e:
+    print(f"Can't import config: {e.lower()}")
     print("Using default settings")
     Host = ""
     Port = 7777
@@ -65,9 +66,9 @@ if UseReadline:
     del parse_and_bind, set_completer
 
 # Configuring multivate method
-if MultivateMethod.strip().lower() == "thread":
+if MultivateMethod.strip().lower().strip() == "thread":
     from threading import Thread as Multivate
-elif MultivateMethod.strip().lower() == "process":
+elif MultivateMethod.strip().lower().strip() == "process":
     from multiprocessing import Process as Multivate
 else:
     print("Unknown multivate method, valid values are 'Thread' and 'Process'")
@@ -99,6 +100,10 @@ def Cli():
             StrArgs = ""
             for arg in args:
                 StrArgs += f"{arg} "
+            if len(StrArgs) > 0:
+                HasArgs = True
+            else:
+                HasArgs = False
             if cmd in CliCommands:
                 exec(CliCommands[cmd])
             else:
@@ -179,3 +184,5 @@ while True:
         GracefullyExit()
         print()
         exit()
+    except OSError:
+        pass

@@ -69,7 +69,10 @@ def reader():
 
 def sender():
     while True:
-        client.sendall(compress(bytes(input(), "UTF-8")))
+        msg = input().strip()
+        if msg == "":
+            continue
+        client.sendall(compress(bytes(msg, "UTF-8")))
 
 
 Thread(target=sender, daemon=True).start()
